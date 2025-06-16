@@ -2,6 +2,8 @@ const express = require("express");
 const connectDB = require("./config/database1");
 const app = express();
 const User = require("./models/user");
+const { validateSignupData } = require("./utils/validation");
+const bcrypt = require("bcrypt");
 
 // Middleware to parse JSON request bodies
 app.use(express.json());
@@ -18,13 +20,51 @@ app.post("/signup", async (req, res) => {
   });
   */
 
-  const user = new User(req.body);
-
   try {
+    // Step 1: Validate request body
+    validateSignupData(req);
+
+    // Step 2: Destructure data
+    const { firstName, lastName, emailId, password } = req.body;
+
+    // Step 3: Encrypt password
+    const passwordHash = await bcrypt.hash(password, 10);
+    console.log(passwordHash);
+
+    // Step 4: Create new user object
+    const user = new User({
+      firstName,
+      lastName,
+      emailId,
+      password: passwordHash,
+    });
+
     await user.save();
     res.send("User Added Successfully!");
   } catch (err) {
     res.status(400).send("Error saving the user: " + err.message);
+  }
+});
+
+// Login route
+app.post("/login", async (req, res) => {
+  try {
+    const { emailId, password } = req.body;
+
+    const user = await User.findOne({ emailId: emailId });
+    if (!user) {
+      throw new Error("EmailID not present in DB");
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (isPasswordValid) {
+      res.send("Login Successful!!!");
+    } else {
+      throw new Error("Password id not correct");
+    }
+  } catch (err) {
+    res.status(400).send("ERROR = " + err.message);
   }
 });
 
@@ -63,7 +103,8 @@ app.patch("/user", async (req, res) => {
 
   try {
     const user = await User.findByIdAndUpdate({ _id: userId }, data, {
-      returnDocument: "before", // Returns the old document before update
+      returnDocument: "after", // returns updated doc (like {new: true})
+      runValidators: true, // enforce schema validation during update
     });
 
     console.log(user); // Logs the previous (old) data before update
