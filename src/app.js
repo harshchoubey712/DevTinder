@@ -4,69 +4,32 @@ const app = express();
 const User = require("./models/user");
 const { validateSignupData } = require("./utils/validation");
 const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
+const userAuth = require("./middlewares/auth");
+
+const authRouter = require("./routes/auth");
+const profileRouter = require("./routes/profile");
+const requestRouter = require("./routes/requests");
+const userRouter = require("./routes/user");
+const cors = require("cors");
 
 // Middleware to parse JSON request bodies
 app.use(express.json());
+app.use(cookieParser());
 
-app.post("/signup", async (req, res) => {
-  // Creating a new instance of the User model
+app.use(
+  cors({
+    origin: "http://localhost:5173", // ✅ Frontend origin only
+    credentials: true, // ✅ Allow cookies
+  })
+);
 
-  /*
-  const user = new User({
-    firstName: "Akshay",
-    lastName: "Saini",
-    emailId: "akshay@saini.com",
-    password: "akshay@123",
-  });
-  */
-
-  try {
-    // Step 1: Validate request body
-    validateSignupData(req);
-
-    // Step 2: Destructure data
-    const { firstName, lastName, emailId, password } = req.body;
-
-    // Step 3: Encrypt password
-    const passwordHash = await bcrypt.hash(password, 10);
-    console.log(passwordHash);
-
-    // Step 4: Create new user object
-    const user = new User({
-      firstName,
-      lastName,
-      emailId,
-      password: passwordHash,
-    });
-
-    await user.save();
-    res.send("User Added Successfully!");
-  } catch (err) {
-    res.status(400).send("Error saving the user: " + err.message);
-  }
-});
-
-// Login route
-app.post("/login", async (req, res) => {
-  try {
-    const { emailId, password } = req.body;
-
-    const user = await User.findOne({ emailId: emailId });
-    if (!user) {
-      throw new Error("EmailID not present in DB");
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (isPasswordValid) {
-      res.send("Login Successful!!!");
-    } else {
-      throw new Error("Password id not correct");
-    }
-  } catch (err) {
-    res.status(400).send("ERROR = " + err.message);
-  }
-});
+// Routers
+app.use(authRouter);
+app.use(profileRouter);
+app.use(requestRouter);
+app.use(userRouter);
 
 app.get("/user", async (req, res) => {
   const userEmail = req.body.emailId;
